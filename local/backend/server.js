@@ -270,9 +270,20 @@ async function pullFromWeb() {
     });
     if (!res.ok) {
       console.warn(`[sync] Pull from web failed: ${res.status}`);
-      return { ok: false, pulled: 0, skipped: 0 };
+      return { ok: false, pulled: 0, skipped: 0, error: `Web app returned status ${res.status}` };
     }
-    const webProjects = await res.json();
+    const text = await res.text();
+    let webProjects;
+    try {
+      webProjects = JSON.parse(text);
+    } catch {
+      console.warn(`[sync] Web app returned non-JSON response: ${text.substring(0, 200)}`);
+      return { ok: false, pulled: 0, skipped: 0, error: 'Web app nije vratio validan JSON. Proveri WEB_API_URL konfiguraciju.' };
+    }
+    if (!Array.isArray(webProjects)) {
+      console.warn(`[sync] Expected array, got:`, webProjects);
+      return { ok: false, pulled: 0, skipped: 0, error: 'Neočekivan odgovor od web app-a.' };
+    }
     let pulled = 0, skipped = 0;
     for (const wp of webProjects) {
       if (readProject(wp.id)) {

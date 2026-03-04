@@ -1,0 +1,13 @@
+{
+  "name": "impulse-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd web/frontend && npm install && cd ../backend && npm install",
+    "build": "cd web/frontend && npm run build && mkdir -p ../backend/public && cp -r dist/* ../backend/public/",
+    "start": "cd web/backend && node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
