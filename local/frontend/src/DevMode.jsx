@@ -72,8 +72,8 @@ export default function DevMode({ project, onBack }) {
 
     return () => {
       mounted = false;
-      // Stop dev server on unmount
-      fetch(`${API}/projects/${project.id}/dev-stop`, { method: 'POST' }).catch(() => {});
+      // Stop dev server on unmount (keepalive ensures delivery during page unload)
+      fetch(`${API}/projects/${project.id}/dev-stop`, { method: 'POST', keepalive: true }).catch(() => {});
     };
   }, [project.id]);
 

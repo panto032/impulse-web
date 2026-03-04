@@ -10,27 +10,10 @@ try {
   console.warn('[terminal] Install with: npm install node-pty');
 }
 
-const { exec } = require('child_process');
+const { stopDevServer } = require('./devserver');
 
 // Active terminal sessions: projectId → { ptyProcess, ws[] }
 const sessions = new Map();
-
-// Kill processes listening on specific ports (cleanup dev servers)
-function killPortProcesses(ports) {
-  const isWin = process.platform === 'win32';
-  for (const port of ports) {
-    if (isWin) {
-      exec(`for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do taskkill /PID %a /F`,
-        { shell: 'cmd.exe', windowsHide: true },
-        (err) => { if (!err) console.log(`[terminal] Killed process on port ${port}`); }
-      );
-    } else {
-      exec(`lsof -ti:${port} | xargs -r kill -9`, { shell: true },
-        (err) => { if (!err) console.log(`[terminal] Killed process on port ${port}`); }
-      );
-    }
-  }
-}
 
 function setupTerminalServer(server) {
   if (!pty) {
@@ -106,8 +89,8 @@ function handleConnection(ws, projectId, cmd, cwd) {
 
     ptyProcess.onExit(({ exitCode }) => {
       console.log(`[terminal] pty exited for ${projectId}, code: ${exitCode}`);
-      // Kill any dev servers spawned inside this session
-      killPortProcesses([5173, 5174, 5175, 5176]);
+      // Stop the dev server for this specific project
+      stopDevServer(projectId);
       for (const client of session.clients) {
         if (client.readyState === 1) {
           client.send(JSON.stringify({ type: 'exit', code: exitCode }));

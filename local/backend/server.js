@@ -1,3 +1,4 @@
+require('dotenv').config({ path: '../../.env' });
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -33,7 +34,7 @@ const COOLIFY_SERVER_UUID = process.env.COOLIFY_SERVER_UUID || '';
 const GITHUB_ORG = process.env.GITHUB_ORG || 'panto032';
 
 // Web app sync config
-const WEB_API_URL = process.env.WEB_API_URL || 'http://localhost:3003';
+const WEB_API_URL = process.env.WEB_API_URL || 'https://app.impulsee.dev';
 const WEB_SYNC_SECRET = process.env.WEB_SYNC_SECRET || 'impulse-sync-2024';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -258,6 +259,23 @@ async function syncDeleteToWeb(projectId) {
   } catch (err) {
     console.warn(`[sync] Web delete not reachable: ${err.message}`);
   }
+}
+
+// ── Push All Local Projects to Web ───────────────────────────────────────────
+
+async function pushAllToWeb() {
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json'));
+    let pushed = 0;
+    for (const f of files) {
+      try {
+        const project = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf8'));
+        await syncToWeb(project);
+        pushed++;
+      } catch {}
+    }
+    if (pushed > 0) console.log(`[sync] Pushed ${pushed} local projects to web.`);
+  } catch {}
 }
 
 // ── Pull Projects from Web ───────────────────────────────────────────────────
@@ -1062,6 +1080,112 @@ app.post('/api/sync-repo', async (req, res) => {
   }
 });
 
+// ── Setup Local (clone project on new machine) ───────────────────────────────
+
+app.post('/api/projects/:id/setup-local', async (req, res) => {
+  const project = readProject(req.params.id);
+  if (!project) return res.status(404).json({ error: 'Not found' });
+
+  const repoUrl = project.github;
+  if (!repoUrl) {
+    return res.status(400).json({ error: 'Projekat nema GitHub URL — nije moguće klonirati.' });
+  }
+
+  if (project.serverPath && fs.existsSync(project.serverPath)) {
+    return res.json({ ok: true, message: 'Folder već postoji.', project });
+  }
+
+  try {
+    fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+  } catch {}
+
+  const serverPath = uniqueServerPath(project.name || 'projekat');
+
+  try {
+    const cloneResult = await run(`git clone "${repoUrl}" "${serverPath}"`, PROJECTS_DIR, 180000);
+    if (!cloneResult.ok) {
+      return res.status(500).json({ ok: false, error: `Git clone greška: ${cloneResult.stderr || cloneResult.error}` });
+    }
+
+    const updated = { ...project, serverPath, updatedAt: new Date().toISOString() };
+    writeProject(updated);
+    syncToWeb(updated);
+
+    res.json({ ok: true, serverPath, project: updated });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── Import Existing Project ──────────────────────────────────────────────────
+
+app.post('/api/projects/import', async (req, res) => {
+  const { folderPath } = req.body;
+  if (!folderPath) {
+    return res.status(400).json({ error: 'folderPath je obavezan.' });
+  }
+
+  const resolvedPath = path.resolve(folderPath);
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(400).json({ error: `Folder ne postoji: ${resolvedPath}` });
+  }
+
+  // Read git remote for github URL
+  let github = '';
+  try {
+    const gitResult = await run('git remote get-url origin', resolvedPath, 5000);
+    if (gitResult.ok) {
+      github = gitResult.stdout.trim().replace(/\.git$/, '');
+    }
+  } catch {}
+
+  const name = path.basename(resolvedPath);
+  const now = new Date().toISOString();
+
+  const project = {
+    id: crypto.randomUUID(),
+    name,
+    client: '',
+    description: '',
+    status: 'in-progress',
+    tech: [],
+    serverPath: resolvedPath,
+    github,
+    coolifyAppId: '',
+    coolifyDomain: '',
+    liveUrl: '',
+    notes: '',
+    createdAt: now,
+    updatedAt: now,
+    lastOpenedAt: null,
+    clientToken: crypto.randomBytes(16).toString('hex'),
+  };
+
+  writeProject(project);
+  syncToWeb(project);
+
+  res.json({ ok: true, project });
+});
+
+// ── Git Pull (update code) ───────────────────────────────────────────────────
+
+app.post('/api/projects/:id/git-pull', async (req, res) => {
+  const project = readProject(req.params.id);
+  if (!project) return res.status(404).json({ error: 'Not found' });
+
+  const dir = project.serverPath;
+  if (!dir || !fs.existsSync(dir)) {
+    return res.status(400).json({ error: 'Server folder ne postoji.' });
+  }
+  if (!fs.existsSync(path.join(dir, '.git'))) {
+    return res.status(400).json({ error: 'Folder nije git repozitorijum.' });
+  }
+
+  const result = await run('git pull', dir, 60000);
+  const output = [result.stdout, result.stderr].filter(Boolean).join('\n');
+  res.json({ ok: result.ok, output: output || 'Već ažurirano.' });
+});
+
 // ── Kill Port ────────────────────────────────────────────────────────────────
 
 app.post('/api/kill-port/:port', (req, res) => {
@@ -1111,10 +1235,12 @@ server.listen(PORT, () => {
   console.log('Projects dir:', PROJECTS_DIR);
   console.log('Terminal: ws://localhost:' + PORT + '/terminal/:id');
 
-  // Auto-pull projects from web on startup
-  pullFromWeb().then(result => {
-    if (result.ok && result.pulled > 0) {
-      console.log(`[sync] Pulled ${result.pulled} projects from web (skipped ${result.skipped})`);
-    }
-  }).catch(() => {});
+  // Auto-sync: push local projects to web, then pull from web
+  pushAllToWeb()
+    .then(() => pullFromWeb())
+    .then(result => {
+      if (result.ok && result.pulled > 0) {
+        console.log(`[sync] Pulled ${result.pulled} projects from web (skipped ${result.skipped})`);
+      }
+    }).catch(() => {});
 });

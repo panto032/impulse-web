@@ -5,6 +5,7 @@ import {
   Github, Activity, Plus, Globe, Upload, Download, Trash2,
   FolderOpen, FileText, RefreshCw, GitBranch, Copy,
   Sparkles, Settings, Shield, Key, RotateCcw, Ban, Play,
+  FolderInput, HelpCircle, GitPullRequest,
 } from 'lucide-react';
 import DevMode from './DevMode.jsx';
 
@@ -80,6 +81,20 @@ export default function App() {
   // Sync repo
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
+
+  // Import project
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPath, setImportPath] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Setup local (clone on new machine)
+  const [isSettingUp, setIsSettingUp] = useState(false);
+
+  // Git pull
+  const [isGitPulling, setIsGitPulling] = useState(false);
+
+  // Help
+  const [showHelp, setShowHelp] = useState(false);
 
   const fileInputRef = useRef(null);
   const coolifyPollRef = useRef(null);
@@ -216,6 +231,66 @@ export default function App() {
     } finally {
       setIsPulling(false);
     }
+  };
+
+  // ── Import Existing Project ──────────────────────────────────────────────────
+
+  const handleImport = async () => {
+    if (!importPath.trim()) { showToast('Unesi putanju do foldera.', 'error'); return; }
+    setIsImporting(true);
+    showToast('Importujem projekat...', 'loading', 0);
+    try {
+      const data = await callApi('POST', '/projects/import', { folderPath: importPath.trim() });
+      if (data.ok) {
+        showToast(`Projekat "${data.project.name}" importovan!`, 'success');
+        setProjects(prev => [data.project, ...prev]);
+        setShowImportModal(false);
+        setImportPath('');
+      } else {
+        showToast(data.error || 'Greška pri importu.', 'error');
+      }
+    } catch (err) {
+      showToast('Server nije dostupan: ' + err.message, 'error');
+    }
+    setIsImporting(false);
+  };
+
+  // ── Setup Local (clone on new machine) ────────────────────────────────────
+
+  const handleSetupLocal = async () => {
+    if (!selectedProject) return;
+    setIsSettingUp(true);
+    showToast('Kloniram projekat sa GitHub-a...', 'loading', 0);
+    try {
+      const data = await callApi('POST', `/projects/${selectedProject.id}/setup-local`);
+      if (data.ok) {
+        setSelectedProject(data.project);
+        setProjects(prev => prev.map(p => p.id === data.project.id ? data.project : p));
+        showToast(`Projekat preuzet u ${data.serverPath || data.project.serverPath}`, 'success');
+      } else {
+        showToast(data.error || 'Greška pri kloniranju.', 'error');
+      }
+    } catch (err) {
+      showToast('Server nije dostupan: ' + err.message, 'error');
+    }
+    setIsSettingUp(false);
+  };
+
+  // ── Git Pull (update code) ────────────────────────────────────────────────
+
+  const handleGitPull = async () => {
+    if (!selectedProject) return;
+    setIsGitPulling(true);
+    setActionOutput(null);
+    showToast('Git pull u toku...', 'loading', 0);
+    try {
+      const data = await callApi('POST', `/projects/${selectedProject.id}/git-pull`);
+      setActionOutput(data);
+      showToast(data.ok ? 'Kod ažuriran!' : 'Git pull greška.', data.ok ? 'success' : 'error');
+    } catch (err) {
+      showToast('Server nije dostupan: ' + err.message, 'error');
+    }
+    setIsGitPulling(false);
   };
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
@@ -483,6 +558,15 @@ export default function App() {
             <SidebarItem icon={<Rocket size={18} />} label="Interni SaaS" count={counts.saas} active={activeTab === 'saas'} onClick={() => setActiveTab('saas')} />
           </nav>
         </div>
+        <div className="p-6 pt-0">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300 transition-all"
+          >
+            <HelpCircle size={18} className="text-zinc-600" />
+            Uputstvo
+          </button>
+        </div>
       </aside>
 
       {/* MAIN CONTENT */}
@@ -508,7 +592,7 @@ export default function App() {
             <button
               onClick={handlePullFromWeb}
               disabled={isPulling}
-              title="Povuci projekte sa weba"
+              title="Povuci projekte sa web app-a (sync metapodataka)"
               className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-2.5 rounded-xl text-sm font-medium border border-zinc-700/60 transition-all disabled:opacity-50"
             >
               <Download size={16} className={isPulling ? 'animate-bounce' : ''} />
@@ -517,14 +601,23 @@ export default function App() {
             <button
               onClick={handleSyncRepo}
               disabled={isSyncing}
-              title="Sync sa GitHub"
+              title="Sync IMPULSE repo na GitHub (git add + commit + push + pull)"
               className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-2.5 rounded-xl text-sm font-medium border border-zinc-700/60 transition-all disabled:opacity-50"
             >
               <GitBranch size={16} className={isSyncing ? 'animate-spin' : ''} />
               Sync
             </button>
             <button
+              onClick={() => setShowImportModal(true)}
+              title="Dodaj postojeći folder/projekat u dashboard"
+              className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-2.5 rounded-xl text-sm font-medium border border-zinc-700/60 transition-all"
+            >
+              <FolderInput size={16} />
+              Importuj
+            </button>
+            <button
               onClick={() => setShowNewModal(true)}
+              title="Kreiraj novi projekat sa GitHub repo-om i Coolify deploy-om"
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all"
             >
               <Plus size={16} /> Novi Projekat
@@ -689,12 +782,32 @@ export default function App() {
                 {panelTab === 'pregled' && (
                   <div className="p-8 space-y-6">
 
+                    {/* SETUP LOCAL — show prominently if no serverPath */}
+                    {!selectedProject.serverPath && selectedProject.github && (
+                      <button
+                        onClick={handleSetupLocal}
+                        disabled={isSettingUp}
+                        title="Kloniraj kod sa GitHub-a na ovaj računar"
+                        className="w-full flex items-center justify-center gap-3 p-5 bg-gradient-to-b from-amber-500/10 to-amber-500/5 hover:from-amber-500/20 hover:to-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 rounded-2xl text-amber-400 hover:text-amber-300 transition-all group shadow-lg shadow-amber-500/5 disabled:opacity-50"
+                      >
+                        {isSettingUp
+                          ? <div className="w-6 h-6 border-2 border-amber-600 border-t-amber-300 rounded-full animate-spin" />
+                          : <Download className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                        }
+                        <div className="text-left">
+                          <span className="font-bold text-base block">{isSettingUp ? 'Kloniram...' : 'Preuzmi projekat'}</span>
+                          <span className="text-[11px] text-amber-500/60 font-medium">Kloniraj kod sa GitHub-a na ovaj računar</span>
+                        </div>
+                      </button>
+                    )}
+
                     {/* BIG ACTION BUTTONS */}
                     <div className="grid grid-cols-2 gap-4">
                       {/* Dev Mode - PRIMARY */}
                       <button
                         onClick={() => setDevModeProject(selectedProject)}
                         disabled={!selectedProject.serverPath}
+                        title="Otvori razvojno okruženje (Claude + Live Preview)"
                         className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-indigo-500/10 to-indigo-500/5 hover:from-indigo-500/20 hover:to-indigo-500/10 border border-indigo-500/20 hover:border-indigo-500/40 rounded-2xl text-indigo-400 hover:text-indigo-300 transition-all group shadow-lg shadow-indigo-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">
@@ -708,6 +821,7 @@ export default function App() {
                       <button
                         onClick={handlePublish}
                         disabled={isPublishing || !selectedProject.serverPath}
+                        title="Git add + commit + push koda na GitHub"
                         className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-zinc-800/50 to-zinc-900 hover:from-zinc-800 hover:to-zinc-800/80 border border-zinc-700 hover:border-zinc-500 rounded-2xl text-zinc-300 hover:text-white transition-all group shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-zinc-700 transition-all border border-zinc-700">
@@ -720,6 +834,23 @@ export default function App() {
                         <span className="text-[11px] text-zinc-500 mt-1 font-medium">Commit + Push + Deploy</span>
                       </button>
                     </div>
+
+                    {/* Git Pull — show when serverPath exists */}
+                    {selectedProject.serverPath && (
+                      <button
+                        onClick={handleGitPull}
+                        disabled={isGitPulling}
+                        title="Povuci poslednje promene sa GitHub-a (git pull)"
+                        className="w-full flex items-center gap-3 px-4 py-3 bg-zinc-900/40 hover:bg-zinc-800/50 border border-zinc-800 hover:border-zinc-700 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all disabled:opacity-50"
+                      >
+                        {isGitPulling
+                          ? <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin shrink-0" />
+                          : <GitPullRequest size={16} className="shrink-0" />
+                        }
+                        <span className="text-sm font-medium">{isGitPulling ? 'Ažuriram...' : 'Ažuriraj kod'}</span>
+                        <span className="text-[11px] text-zinc-600 ml-auto">git pull</span>
+                      </button>
+                    )}
 
                     {/* Commit message input */}
                     <div>
@@ -1167,6 +1298,95 @@ export default function App() {
           onClose={() => setEditProject(null)}
           githubOrg={githubOrg}
         />
+      )}
+
+      {/* IMPORT PROJECT MODAL */}
+      {showImportModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowImportModal(false); }}
+        >
+          <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-8 py-5 border-b border-zinc-800/80 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><FolderInput size={18} className="text-emerald-400" /> Importuj projekat</h2>
+              <button onClick={() => setShowImportModal(false)} className="p-1.5 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-8 space-y-4">
+              <p className="text-sm text-zinc-400">Unesi putanju do postojećeg projekta na disku. Backend će pročitati git remote i kreirati projekat u dashboardu.</p>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Putanja do foldera</label>
+                <input
+                  value={importPath}
+                  onChange={e => setImportPath(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleImport(); }}
+                  placeholder="C:/projects/moj-projekat"
+                  className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all font-mono"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="px-8 py-5 border-t border-zinc-800/80 flex justify-end gap-3">
+              <button onClick={() => setShowImportModal(false)} className="px-5 py-2.5 text-sm text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl transition-all">Otkaži</button>
+              <button
+                onClick={handleImport}
+                disabled={!importPath.trim() || isImporting}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+              >
+                {isImporting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                Importuj
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HELP MODAL */}
+      {showHelp && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowHelp(false); }}
+        >
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-8 py-5 border-b border-zinc-800/80 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><HelpCircle size={18} className="text-emerald-400" /> IMPULSE Dev — Uputstvo</h2>
+              <button onClick={() => setShowHelp(false)} className="p-1.5 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-8 space-y-5">
+              <div className="space-y-3">
+                {[
+                  { icon: <Plus size={14} />, label: 'Novi Projekat', desc: 'Kreira GitHub repo + Coolify app + lokalni folder', color: 'text-emerald-400' },
+                  { icon: <Sparkles size={14} />, label: 'Dev Mode', desc: 'Otvara Claude AI terminal + Live Preview', color: 'text-indigo-400' },
+                  { icon: <CloudUpload size={14} />, label: 'Publish', desc: 'Git add + commit + push koda na GitHub', color: 'text-zinc-300' },
+                  { icon: <Download size={14} />, label: 'Pull', desc: 'Povlači projekte sa web dashboarda (metapodaci)', color: 'text-zinc-300' },
+                  { icon: <GitBranch size={14} />, label: 'Sync', desc: 'Sync IMPULSE repo na GitHub (git add + commit + push + pull)', color: 'text-zinc-300' },
+                  { icon: <FolderInput size={14} />, label: 'Importuj', desc: 'Dodaje postojeći folder/projekat u dashboard', color: 'text-zinc-300' },
+                  { icon: <Download size={14} />, label: 'Preuzmi projekat', desc: 'Klonira kod sa GitHub-a na ovaj računar (za nove mašine)', color: 'text-amber-400' },
+                  { icon: <GitPullRequest size={14} />, label: 'Ažuriraj kod', desc: 'Povlači poslednje promene sa GitHub-a (git pull)', color: 'text-zinc-300' },
+                ].map(item => (
+                  <div key={item.label} className="flex items-start gap-3">
+                    <div className={`mt-0.5 shrink-0 ${item.color}`}>{item.icon}</div>
+                    <div>
+                      <span className={`text-sm font-semibold ${item.color}`}>{item.label}</span>
+                      <p className="text-xs text-zinc-500 mt-0.5">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Na novom računaru</p>
+                <ol className="text-sm text-zinc-400 space-y-1.5 list-decimal list-inside">
+                  <li><span className="text-emerald-400 font-medium">Pull</span> — povuci projekte sa web dashboarda</li>
+                  <li><span className="text-amber-400 font-medium">Preuzmi</span> — kloniraj kod sa GitHub-a</li>
+                  <li><span className="text-indigo-400 font-medium">Dev Mode</span> — nastavi razvoj</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`
