@@ -79,6 +79,7 @@ export default function App() {
 
   // Sync repo
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
 
   const fileInputRef = useRef(null);
   const coolifyPollRef = useRef(null);
@@ -195,6 +196,25 @@ export default function App() {
       showToast('Sync greška: ' + err.message, 'error');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handlePullFromWeb = async () => {
+    setIsPulling(true);
+    showToast('Povlačim projekte sa weba...', 'loading', 0);
+    try {
+      const res = await fetch(`${API}/pull-from-web`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Povučeno ${data.pulled} projekata (preskočeno ${data.skipped})`, 'success');
+        if (data.pulled > 0) fetchProjects();
+      } else {
+        showToast(data.error || 'Greška pri povlačenju.', 'error');
+      }
+    } catch (err) {
+      showToast('Web app nije dostupna: ' + err.message, 'error');
+    } finally {
+      setIsPulling(false);
     }
   };
 
@@ -485,6 +505,15 @@ export default function App() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Lokalni server
             </div>
+            <button
+              onClick={handlePullFromWeb}
+              disabled={isPulling}
+              title="Povuci projekte sa weba"
+              className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-2.5 rounded-xl text-sm font-medium border border-zinc-700/60 transition-all disabled:opacity-50"
+            >
+              <Download size={16} className={isPulling ? 'animate-bounce' : ''} />
+              Pull
+            </button>
             <button
               onClick={handleSyncRepo}
               disabled={isSyncing}
@@ -1190,6 +1219,7 @@ function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg }
     tech: initial.tech || [],
     notes: initial.notes || '',
     githubOrg: githubOrg || '',
+    cloneUrl: '',
     claudeTemplate: 'React + Vite',
     claudeInstructions: '',
     includeLicensing: false,
@@ -1245,8 +1275,17 @@ function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg }
             <input className={inputCls} placeholder="Npr. Klijent Portal" value={form.name} onChange={e => set('name', e.target.value)} autoFocus />
           </div>
 
-          {/* GitHub org (only for new) */}
+          {/* Git Clone URL (only for new) */}
           {!isEdit && (
+            <div>
+              <label className={labelCls}>Git Clone URL (opciono)</label>
+              <input className={`${inputCls} font-mono`} placeholder="https://github.com/user/repo.git" value={form.cloneUrl} onChange={e => set('cloneUrl', e.target.value)} />
+              <p className="text-[11px] text-zinc-600 mt-1.5">Ako imaš postojeći repo, unesi URL — preskače kreiranje novog GitHub repoa</p>
+            </div>
+          )}
+
+          {/* GitHub org (only for new, hidden when cloneUrl is set) */}
+          {!isEdit && !form.cloneUrl.trim() && (
             <div>
               <label className={labelCls}>GitHub organizacija</label>
               <input className={`${inputCls} font-mono`} placeholder="panto032" value={form.githubOrg} onChange={e => set('githubOrg', e.target.value)} />

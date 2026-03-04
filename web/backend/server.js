@@ -141,6 +141,16 @@ app.delete('/api/sync/project/:id', requireSyncAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/sync/projects', requireSyncAuth, (req, res) => {
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json'));
+    const projects = files.map(f => JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf8')));
+    res.json(projects);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
 // Protect all /api routes except login, sync, and public client endpoint
 app.use('/api', (req, res, next) => {
   if (req.path === '/auth/login') return next();

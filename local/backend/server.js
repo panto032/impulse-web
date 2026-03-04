@@ -260,6 +260,35 @@ async function syncDeleteToWeb(projectId) {
   }
 }
 
+// ── Pull Projects from Web ───────────────────────────────────────────────────
+
+async function pullFromWeb() {
+  try {
+    const res = await fetch(`${WEB_API_URL}/api/sync/projects`, {
+      headers: { 'X-Sync-Secret': WEB_SYNC_SECRET },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.warn(`[sync] Pull from web failed: ${res.status}`);
+      return { ok: false, pulled: 0, skipped: 0 };
+    }
+    const webProjects = await res.json();
+    let pulled = 0, skipped = 0;
+    for (const wp of webProjects) {
+      if (readProject(wp.id)) {
+        skipped++;
+      } else {
+        writeProject(wp);
+        pulled++;
+      }
+    }
+    return { ok: true, pulled, skipped };
+  } catch (err) {
+    console.warn(`[sync] Web app not reachable for pull: ${err.message}`);
+    return { ok: false, pulled: 0, skipped: 0, error: err.message };
+  }
+}
+
 // Multer: uploads go to serverPath/_docs/
 const uploadStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -289,6 +318,17 @@ app.get('/api/info', (req, res) => {
     coolifyConfigured: !!(COOLIFY_API_URL && COOLIFY_TOKEN && COOLIFY_SERVER_UUID),
     githubOrg: GITHUB_ORG,
   });
+});
+
+// ── Pull from Web ─────────────────────────────────────────────────────────────
+
+app.post('/api/pull-from-web', async (req, res) => {
+  try {
+    const result = await pullFromWeb();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // ── Projects CRUD ─────────────────────────────────────────────────────────────
@@ -325,39 +365,62 @@ app.post('/api/projects', async (req, res) => {
 
   const steps = [];
   let github = '';
+  const cloneUrl = (req.body.cloneUrl || '').trim();
 
-  // Step 1: Create GitHub repo + clone into serverPath
-  try {
-    // First create the repo on GitHub
-    const createResult = await run(
-      `gh repo create ${githubOrg}/${folderName} --public`,
-      PROJECTS_DIR,
-      30000
-    );
-    if (createResult.ok) {
-      github = `https://github.com/${githubOrg}/${folderName}`;
-      // Then clone it into serverPath
+  // Step 1: Create GitHub repo + clone (or clone from existing URL)
+  if (cloneUrl) {
+    // Clone from existing repo URL
+    try {
       const cloneResult = await run(
-        `git clone "${github}" "${serverPath}"`,
+        `git clone "${cloneUrl}" "${serverPath}"`,
         PROJECTS_DIR,
-        60000
+        120000
       );
       if (cloneResult.ok) {
-        steps.push({ step: 'github', ok: true, output: 'Repo kreiran i kloniran.' });
+        github = cloneUrl.replace(/\.git$/, '');
+        steps.push({ step: 'clone', ok: true, output: 'Repo kloniran sa postojećeg URL-a.' });
       } else {
-        steps.push({ step: 'github', ok: false, output: cloneResult.stderr || cloneResult.error });
+        steps.push({ step: 'clone', ok: false, output: cloneResult.stderr || cloneResult.error });
         fs.mkdirSync(serverPath, { recursive: true });
         await run('git init', serverPath);
       }
-    } else {
-      steps.push({ step: 'github', ok: false, output: createResult.stderr || createResult.error });
+    } catch (err) {
+      steps.push({ step: 'clone', ok: false, output: err.message });
       fs.mkdirSync(serverPath, { recursive: true });
       await run('git init', serverPath);
     }
-  } catch (err) {
-    steps.push({ step: 'github', ok: false, output: err.message });
-    fs.mkdirSync(serverPath, { recursive: true });
-    await run('git init', serverPath);
+  } else {
+    // Create new GitHub repo + clone
+    try {
+      const createResult = await run(
+        `gh repo create ${githubOrg}/${folderName} --public`,
+        PROJECTS_DIR,
+        30000
+      );
+      if (createResult.ok) {
+        github = `https://github.com/${githubOrg}/${folderName}`;
+        const cloneResult = await run(
+          `git clone "${github}" "${serverPath}"`,
+          PROJECTS_DIR,
+          60000
+        );
+        if (cloneResult.ok) {
+          steps.push({ step: 'github', ok: true, output: 'Repo kreiran i kloniran.' });
+        } else {
+          steps.push({ step: 'github', ok: false, output: cloneResult.stderr || cloneResult.error });
+          fs.mkdirSync(serverPath, { recursive: true });
+          await run('git init', serverPath);
+        }
+      } else {
+        steps.push({ step: 'github', ok: false, output: createResult.stderr || createResult.error });
+        fs.mkdirSync(serverPath, { recursive: true });
+        await run('git init', serverPath);
+      }
+    } catch (err) {
+      steps.push({ step: 'github', ok: false, output: err.message });
+      fs.mkdirSync(serverPath, { recursive: true });
+      await run('git init', serverPath);
+    }
   }
 
   // Step 2: Init project folder structure
@@ -1036,4 +1099,11 @@ server.listen(PORT, () => {
   console.log(`IMPULSE Local backend: http://localhost:${PORT}`);
   console.log('Projects dir:', PROJECTS_DIR);
   console.log('Terminal: ws://localhost:' + PORT + '/terminal/:id');
+
+  // Auto-pull projects from web on startup
+  pullFromWeb().then(result => {
+    if (result.ok && result.pulled > 0) {
+      console.log(`[sync] Pulled ${result.pulled} projects from web (skipped ${result.skipped})`);
+    }
+  }).catch(() => {});
 });
