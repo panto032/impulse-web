@@ -16,6 +16,16 @@ if (fs.existsSync(ghCliPath) && !process.env.PATH.includes(ghCliPath)) {
   process.env.PATH = ghCliPath + path.delimiter + process.env.PATH;
 }
 
+// Check if gh CLI is available
+let ghAvailable = false;
+try {
+  require('child_process').execSync('gh --version', { stdio: 'ignore', timeout: 5000 });
+  ghAvailable = true;
+} catch {
+  console.warn('[startup] GitHub CLI (gh) not found — "Novi Projekat" neće moći da kreira GitHub repo automatski.');
+  console.warn('[startup] Instaliraj: winget install GitHub.cli && gh auth login');
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -346,6 +356,7 @@ app.get('/api/info', (req, res) => {
     projectsDir: PROJECTS_DIR,
     coolifyConfigured: !!(COOLIFY_API_URL && COOLIFY_TOKEN && COOLIFY_SERVER_UUID),
     githubOrg: GITHUB_ORG,
+    ghAvailable,
   });
 });
 
@@ -397,6 +408,10 @@ app.post('/api/projects', async (req, res) => {
   const cloneUrl = (req.body.cloneUrl || '').trim();
 
   // Step 1: Create GitHub repo + clone (or clone from existing URL)
+  if (!cloneUrl && !ghAvailable) {
+    steps.push({ step: 'github', ok: false, output: 'GitHub CLI (gh) nije instaliran. Instaliraj: winget install GitHub.cli && gh auth login' });
+  }
+
   if (cloneUrl) {
     // Clone from existing repo URL
     try {

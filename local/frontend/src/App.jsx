@@ -52,6 +52,7 @@ export default function App() {
   const [notesSaved, setNotesSaved] = useState(false);
   const [coolifyConfigured, setCoolifyConfigured] = useState(false);
   const [githubOrg, setGithubOrg] = useState('');
+  const [ghAvailable, setGhAvailable] = useState(true);
 
   // Command Center tabs
   const [panelTab, setPanelTab] = useState('pregled');
@@ -106,6 +107,7 @@ export default function App() {
       .then(d => {
         setCoolifyConfigured(!!d.coolifyConfigured);
         setGithubOrg(d.githubOrg || '');
+        setGhAvailable(d.ghAvailable !== false);
       })
       .catch(() => {});
   }, []);
@@ -1286,6 +1288,7 @@ export default function App() {
           onSave={handleCreate}
           onClose={() => setShowNewModal(false)}
           githubOrg={githubOrg}
+          ghAvailable={ghAvailable}
         />
       )}
 
@@ -1427,7 +1430,7 @@ const CLAUDE_TEMPLATES = {
   'Prazno': CLAUDE_INFRA,
 };
 
-function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg }) {
+function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg, ghAvailable = true }) {
   const isEdit = !!initial?.id;
   const [form, setForm] = useState({
     name: initial.name || '',
@@ -1486,6 +1489,17 @@ function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg }
             <div className="flex items-center gap-2 bg-indigo-500/5 border border-indigo-500/20 rounded-xl px-4 py-3 text-xs text-indigo-400">
               <Sparkles size={14} className="shrink-0" />
               <span>One-click: kreira GitHub repo, folder, Coolify app</span>
+            </div>
+          )}
+
+          {!isEdit && !ghAvailable && (
+            <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/20 rounded-xl px-4 py-3 text-xs text-red-400">
+              <AlertCircle size={14} className="shrink-0" />
+              <div>
+                <span className="font-semibold">GitHub CLI (gh) nije instaliran!</span>
+                <span className="text-red-400/70 ml-1">Bez njega ne može automatski kreirati GitHub repo. Instaliraj:</span>
+                <code className="block mt-1 text-red-300 bg-red-500/10 px-2 py-1 rounded font-mono">winget install GitHub.cli &amp;&amp; gh auth login</code>
+              </div>
             </div>
           )}
 
