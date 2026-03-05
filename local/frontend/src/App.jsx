@@ -160,7 +160,7 @@ export default function App() {
       const res = await fetch(`${API}/projects`);
       setProjects(await res.json());
     } catch {
-      showToast('Backend nije dostupan na portu 3002.', 'error');
+      showToast('Backend nije dostupan na portu 4902.', 'error');
     } finally {
       setLoading(false);
     }

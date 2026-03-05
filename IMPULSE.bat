@@ -162,7 +162,7 @@ echo.
 :: ══════════════════════════════════════════════════════
 echo [4] Cistim stare procese...
 
-for %%P in (3002 3003 5174 5175) do (
+for %%P in (4902 4903 4904 4905) do (
     for /f "tokens=5" %%A in ('netstat -ano 2^>nul ^| findstr ":%%P " ^| findstr "LISTENING"') do (
         if "%%A" neq "0" (
             taskkill /PID %%A /F >nul 2>&1
@@ -178,23 +178,23 @@ echo.
 :: ══════════════════════════════════════════════════════
 echo [5] Pokrecem servise...
 
-:: Local Backend (port 3002)
-echo     Local Backend (port 3002)...
+:: Local Backend (port 4902)
+echo     Local Backend (port 4902)...
 start "" /B /D "%INSTALL_DIR%\local\backend" node server.js >nul 2>&1
 
-:: Web Backend (port 3003)
-echo     Web Backend (port 3003)...
+:: Web Backend (port 4903)
+echo     Web Backend (port 4903)...
 start "" /B /D "%INSTALL_DIR%\web\backend" node server.js >nul 2>&1
 
 timeout /t 2 /nobreak >nul
 
-:: Local Frontend (port 5174)
-echo     Local Frontend (port 5174)...
-start "" /B /D "%INSTALL_DIR%\local\frontend" node node_modules\vite\bin\vite.js --port 5174 >nul 2>&1
+:: Local Frontend (port 4904)
+echo     Local Frontend (port 4904)...
+start "" /B /D "%INSTALL_DIR%\local\frontend" node node_modules\vite\bin\vite.js --port 4904 >nul 2>&1
 
-:: Web Frontend (port 5175)
-echo     Web Frontend (port 5175)...
-start "" /B /D "%INSTALL_DIR%\web\frontend" node node_modules\vite\bin\vite.js --port 5175 >nul 2>&1
+:: Web Frontend (port 4905)
+echo     Web Frontend (port 4905)...
+start "" /B /D "%INSTALL_DIR%\web\frontend" node node_modules\vite\bin\vite.js --port 4905 >nul 2>&1
 
 timeout /t 4 /nobreak >nul
 echo.
@@ -205,7 +205,7 @@ echo.
 echo [6] Verifikacija...
 
 set "RUNNING=0"
-for %%P in (3002 3003 5174 5175) do (
+for %%P in (4902 4903 4904 4905) do (
     set "FOUND="
     for /f "tokens=5" %%A in ('netstat -ano 2^>nul ^| findstr ":%%P " ^| findstr "LISTENING"') do (
         if not defined FOUND (
@@ -231,13 +231,13 @@ if !RUNNING! equ 4 (
 )
 
 echo.
-echo   Local App:  http://localhost:5174   (bez logina)
-echo   Web App:    http://localhost:5175   (password iz .env)
+echo   Local App:  http://localhost:4904   (bez logina)
+echo   Web App:    http://localhost:4905   (password iz .env)
 echo.
 
 :: Otvori browser automatski
 timeout /t 1 /nobreak >nul
-start "" "http://localhost:5174"
+start "" "http://localhost:4904"
 
 echo.
 echo  Servisi rade u pozadini.

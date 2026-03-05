@@ -1209,7 +1209,7 @@ app.post('/api/kill-port/:port', (req, res) => {
     return res.status(400).json({ error: 'Invalid port' });
   }
   // Don't allow killing our own backend/frontend ports
-  if ([3002, 3003, 5174, 5175].includes(port)) {
+  if ([4902, 4903, 4904, 4905].includes(port)) {
     return res.status(400).json({ error: 'Ne može se ubiti sistemski port.' });
   }
 
@@ -1244,7 +1244,7 @@ app.post('/api/projects/:id/open-folder', (req, res) => {
 const server = http.createServer(app);
 setupTerminalServer(server);
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 4902;
 server.listen(PORT, () => {
   console.log(`IMPULSE Local backend: http://localhost:${PORT}`);
   console.log('Projects dir:', PROJECTS_DIR);

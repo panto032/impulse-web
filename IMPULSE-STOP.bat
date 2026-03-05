@@ -1,6 +1,6 @@
 @echo off
 echo Zaustavljam IMPULSE servise...
-for %%P in (3002 3003 5174 5175) do (
+for %%P in (4902 4903 4904 4905) do (
     for /f "tokens=5" %%A in ('netstat -ano 2^>nul ^| findstr ":%%P " ^| findstr "LISTENING"') do (
         if "%%A" neq "0" (
             taskkill /PID %%A /F >nul 2>&1

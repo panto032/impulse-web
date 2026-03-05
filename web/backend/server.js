@@ -569,7 +569,7 @@ if (fs.existsSync(frontendDist)) {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 4903;
 app.listen(PORT, () => {
   console.log(`IMPULSE Web backend: http://localhost:${PORT}`);
 });

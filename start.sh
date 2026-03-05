@@ -8,7 +8,7 @@ echo "=== IMPULSE Dashboard ==="
 echo ""
 
 # Kill any existing processes on our ports
-for port in 3002 3003 5174 5175; do
+for port in 4902 4903 4904 4905; do
   pid=$(netstat -ano 2>/dev/null | grep ":$port " | grep LISTENING | awk '{print $5}' | head -1)
   if [ -n "$pid" ] && [ "$pid" != "0" ]; then
     echo "[cleanup] Killing PID $pid on port $port"
@@ -25,30 +25,30 @@ else
   echo "[WARN] .env fajl ne postoji! Kopiraj .env.example u .env i popuni vrednosti."
 fi
 
-# Start Local Backend (port 3002)
-echo "[1/4] Starting Local Backend (port 3002)..."
+# Start Local Backend (port 4902)
+echo "[1/4] Starting Local Backend (port 4902)..."
 (cd "$SCRIPT_DIR/local/backend" && nohup node server.js > /dev/null 2>&1 &)
 
-# Start Web Backend (port 3003)
-echo "[2/4] Starting Web Backend (port 3003)..."
+# Start Web Backend (port 4903)
+echo "[2/4] Starting Web Backend (port 4903)..."
 (cd "$SCRIPT_DIR/web/backend" && nohup node server.js > /dev/null 2>&1 &)
 
 sleep 2
 
-# Start Local Frontend (port 5174)
-echo "[3/4] Starting Local Frontend (port 5174)..."
-(cd "$SCRIPT_DIR/local/frontend" && nohup node node_modules/vite/bin/vite.js --port 5174 > /dev/null 2>&1 &)
+# Start Local Frontend (port 4904)
+echo "[3/4] Starting Local Frontend (port 4904)..."
+(cd "$SCRIPT_DIR/local/frontend" && nohup node node_modules/vite/bin/vite.js --port 4904 > /dev/null 2>&1 &)
 
-# Start Web Frontend (port 5175)
-echo "[4/4] Starting Web Frontend (port 5175)..."
-(cd "$SCRIPT_DIR/web/frontend" && nohup node node_modules/vite/bin/vite.js --port 5175 > /dev/null 2>&1 &)
+# Start Web Frontend (port 4905)
+echo "[4/4] Starting Web Frontend (port 4905)..."
+(cd "$SCRIPT_DIR/web/frontend" && nohup node node_modules/vite/bin/vite.js --port 4905 > /dev/null 2>&1 &)
 
 sleep 3
 
 # Verify
 echo ""
 OK=0
-for port in 3002 3003 5174 5175; do
+for port in 4902 4903 4904 4905; do
   pid=$(netstat -ano 2>/dev/null | grep ":$port " | grep LISTENING | awk '{print $5}' | head -1)
   if [ -n "$pid" ]; then
     echo "  [OK] Port $port (PID $pid)"
@@ -65,7 +65,7 @@ else
   echo "=== WARNING: Only $OK/4 services started ==="
 fi
 echo ""
-echo "  Local App:  http://localhost:5174  (no login)"
-echo "  Web App:    http://localhost:5175  (password: impulse123)"
+echo "  Local App:  http://localhost:4904  (no login)"
+echo "  Web App:    http://localhost:4905  (password: impulse123)"
 echo ""
 echo "To stop: bash stop.sh"
