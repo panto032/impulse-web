@@ -437,7 +437,7 @@ app.post('/api/projects', async (req, res) => {
     // Create new GitHub repo + clone
     try {
       const createResult = await run(
-        `gh repo create ${githubOrg}/${folderName} --public`,
+        `gh repo create ${githubOrg}/${folderName} --private`,
         PROJECTS_DIR,
         30000
       );
