@@ -5,7 +5,7 @@ const net = require('net');
 const activeServers = new Map();
 
 // Find an available port starting from base
-async function findAvailablePort(base = 5173) {
+async function findAvailablePort(base = 4910) {
   for (let port = base; port < base + 100; port++) {
     const available = await new Promise((resolve) => {
       const server = net.createServer();

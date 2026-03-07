@@ -39,6 +39,20 @@ const PROJECTS_DIR = process.env.PROJECTS_DIR || 'C:/projects';
 const COOLIFY_API_URL = process.env.COOLIFY_API_URL || '';
 const COOLIFY_TOKEN = process.env.COOLIFY_TOKEN || '';
 const COOLIFY_SERVER_UUID = process.env.COOLIFY_SERVER_UUID || '';
+const COOLIFY_PRIVATE_KEY_UUID = process.env.COOLIFY_PRIVATE_KEY_UUID || '';
+
+// Convert GitHub URL to SSH format for private repos (git@github.com:owner/repo.git)
+function toGitSshUrl(url) {
+  if (!url) return url;
+  if (url.startsWith('git@')) return url;
+  // https://github.com/owner/repo or owner/repo format
+  const match = url.match(/(?:https?:\/\/github\.com\/)?([^\/]+\/[^\/\s]+)/);
+  if (match) {
+    const repo = match[1].replace(/\.git$/, '');
+    return `git@github.com:${repo}.git`;
+  }
+  return url;
+}
 
 // GitHub org for gh repo create
 const GITHUB_ORG = process.env.GITHUB_ORG || 'panto032';
@@ -501,17 +515,20 @@ app.post('/api/projects', async (req, res) => {
         if (firstProject?.uuid) projectUuid = firstProject.uuid;
       }
 
-      const result = await coolifyApi('POST', '/applications/public', {
+      const usePrivateKey = !!COOLIFY_PRIVATE_KEY_UUID;
+      const endpoint = usePrivateKey ? '/applications/private-deploy-key' : '/applications/public';
+      const result = await coolifyApi('POST', endpoint, {
         project_uuid: projectUuid || undefined,
         server_uuid: COOLIFY_SERVER_UUID,
         environment_name: 'production',
-        git_repository: github,
+        git_repository: usePrivateKey ? toGitSshUrl(github) : github,
         git_branch: 'main',
         build_pack: 'nixpacks',
         name: name,
         domains: coolifyDomain,
         ports_exposes: '3000',
         instant_deploy: false,
+        ...(usePrivateKey ? { private_key_uuid: COOLIFY_PRIVATE_KEY_UUID } : {}),
       });
 
       const resultItem = Array.isArray(result) ? result[0] : result;
@@ -840,17 +857,20 @@ app.post('/api/projects/:id/coolify-setup', async (req, res) => {
       if (firstProject?.uuid) projectUuid = firstProject.uuid;
     }
 
-    const result = await coolifyApi('POST', '/applications/public', {
+    const usePrivateKey = !!COOLIFY_PRIVATE_KEY_UUID;
+    const endpoint = usePrivateKey ? '/applications/private-deploy-key' : '/applications/public';
+    const result = await coolifyApi('POST', endpoint, {
       project_uuid: projectUuid || undefined,
       server_uuid: COOLIFY_SERVER_UUID,
       environment_name: 'production',
-      git_repository: project.github,
+      git_repository: usePrivateKey ? toGitSshUrl(project.github) : project.github,
       git_branch: req.body.branch || 'main',
       build_pack: req.body.build_pack || 'nixpacks',
       name: project.name,
       domains: coolifyDomain,
       ports_exposes: req.body.port || '3000',
       instant_deploy: false,
+      ...(usePrivateKey ? { private_key_uuid: COOLIFY_PRIVATE_KEY_UUID } : {}),
     });
 
     const resultItem = Array.isArray(result) ? result[0] : result;
