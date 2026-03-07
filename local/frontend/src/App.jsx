@@ -529,6 +529,23 @@ export default function App() {
     }
   };
 
+  const handleCoolifyDisconnect = async () => {
+    if (!confirm('Sigurno želiš da diskonektuješ Coolify? (App na Coolify ostaje, samo se briše veza.)')) return;
+    try {
+      const data = await callApi('POST', `/projects/${selectedProject.id}/coolify-disconnect`);
+      if (data.ok) {
+        setSelectedProject(data.project);
+        setProjects(prev => prev.map(p => p.id === data.project.id ? data.project : p));
+        setCoolifyStatus(null);
+        showToast('Coolify diskonektovan.', 'success');
+      } else {
+        showToast(data.error || 'Greška.', 'error');
+      }
+    } catch {
+      showToast('Server nije dostupan.', 'error');
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   // Dev Mode — full screen override
@@ -959,6 +976,12 @@ export default function App() {
                                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 shadow-lg shadow-emerald-500/10"
                               >
                                 {isCoolifyDeploying ? 'Deploy...' : 'Deploy'}
+                              </button>
+                              <button onClick={handleCoolifyDisconnect}
+                                className="p-1.5 hover:bg-red-900/30 rounded-lg text-zinc-600 hover:text-red-400 transition-colors"
+                                title="Diskonektuj Coolify"
+                              >
+                                <X size={14} />
                               </button>
                             </div>
                           </div>

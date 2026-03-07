@@ -894,6 +894,19 @@ app.post('/api/projects/:id/coolify-setup', async (req, res) => {
   }
 });
 
+app.post('/api/projects/:id/coolify-disconnect', async (req, res) => {
+  const project = readProject(req.params.id);
+  if (!project) return res.status(404).json({ error: 'Not found' });
+
+  const { coolifyAppId, coolifyDomain, ...rest } = project;
+  const updated = { ...rest, updatedAt: new Date().toISOString() };
+  // Keep liveUrl only if it wasn't the coolify domain
+  if (updated.liveUrl === coolifyDomain) delete updated.liveUrl;
+  writeProject(updated);
+  syncToWeb(updated);
+  res.json({ ok: true, project: updated });
+});
+
 app.post('/api/projects/:id/coolify-deploy', async (req, res) => {
   const project = readProject(req.params.id);
   if (!project) return res.status(404).json({ error: 'Not found' });
