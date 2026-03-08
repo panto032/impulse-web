@@ -667,9 +667,34 @@ export default function App() {
                 <div
                   key={project.id}
                   onClick={() => setSelectedProject(project)}
-                  className="group relative bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6 hover:bg-zinc-800/40 hover:border-zinc-700 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 overflow-hidden"
+                  className={`group relative bg-zinc-900/40 border rounded-2xl p-6 hover:bg-zinc-800/40 transition-all duration-300 cursor-pointer shadow-sm overflow-hidden ${
+                    project.status === 'live' || project.status === 'deployed'
+                      ? 'border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10'
+                      : project.status === 'completed'
+                      ? 'border-cyan-500/30 hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/10'
+                      : project.status === 'in-progress'
+                      ? 'border-amber-500/20 hover:border-amber-500/40 hover:shadow-xl hover:shadow-amber-500/5'
+                      : 'border-zinc-800/80 hover:border-zinc-700 hover:shadow-xl hover:shadow-emerald-500/5'
+                  }`}
                 >
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity ${
+                    project.status === 'live' || project.status === 'deployed' ? 'via-emerald-500/40' :
+                    project.status === 'completed' ? 'via-cyan-500/30' :
+                    project.status === 'in-progress' ? 'via-amber-500/30' :
+                    'via-emerald-500/20'
+                  }`} />
+
+                  {/* Live ribbon */}
+                  {(project.status === 'live' || project.status === 'deployed') && (
+                    <div className="absolute top-3 -right-8 rotate-45 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-8 py-0.5 shadow-lg shadow-emerald-500/30 z-20">
+                      Live
+                    </div>
+                  )}
+                  {project.status === 'completed' && (
+                    <div className="absolute top-3 -right-8 rotate-45 bg-cyan-500 text-white text-[9px] font-black uppercase tracking-widest px-8 py-0.5 shadow-lg shadow-cyan-500/30 z-20">
+                      Done
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-start mb-5 relative z-10">
                     <div className="min-w-0 flex-1 pr-3">
@@ -1973,9 +1998,9 @@ function SidebarItem({ icon, label, count, active, onClick }) {
 
 function StatusBadge({ status }) {
   const map = {
-    live:          { label: 'Live',      cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
-    deployed:      { label: 'Live',      cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
-    completed:     { label: 'Završen',   cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
+    live:          { label: 'Live',      cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400 animate-pulse' },
+    deployed:      { label: 'Live',      cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400 animate-pulse' },
+    completed:     { label: 'Završen',   cls: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',         dot: 'bg-cyan-400' },
     'in-progress': { label: 'U razvoju', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20',      dot: 'bg-amber-400' },
     paused:        { label: 'Pauzirano', cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',         dot: 'bg-zinc-400' },
     idea:          { label: 'Ideja',     cls: 'bg-purple-500/10 text-purple-400 border-purple-500/20',   dot: 'bg-purple-400' },
