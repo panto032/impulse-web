@@ -518,7 +518,7 @@ app.post('/api/projects', async (req, res) => {
       const usePrivateKey = !!COOLIFY_PRIVATE_KEY_UUID;
       const endpoint = usePrivateKey ? '/applications/private-deploy-key' : '/applications/public';
       const result = await coolifyApi('POST', endpoint, {
-        project_uuid: projectUuid || undefined,
+        project_uuid: projectUuid,
         server_uuid: COOLIFY_SERVER_UUID,
         environment_name: 'production',
         git_repository: usePrivateKey ? toGitSshUrl(github) : github,
@@ -860,7 +860,7 @@ app.post('/api/projects/:id/coolify-setup', async (req, res) => {
     const usePrivateKey = !!COOLIFY_PRIVATE_KEY_UUID;
     const endpoint = usePrivateKey ? '/applications/private-deploy-key' : '/applications/public';
     const result = await coolifyApi('POST', endpoint, {
-      project_uuid: projectUuid || undefined,
+      project_uuid: projectUuid,
       server_uuid: COOLIFY_SERVER_UUID,
       environment_name: 'production',
       git_repository: usePrivateKey ? toGitSshUrl(project.github) : project.github,
