@@ -118,6 +118,30 @@ const CLAUDE_INFRA = `## Infrastruktura & Deploy
 - **.gitignore:** node_modules/, dist/, .env - NIKAD ne komituj ove foldere
 - **Git workflow:** commit + push na main → Coolify automatski deployuje
 
+## Način rada (OBAVEZNO)
+Ti si Senior Developer. Uvijek radi po ovom redosledu:
+1. **ČITAJ** - Prvo pročitaj relevantne fajlove da razumiješ postojeći kod
+2. **PLANIRAJ** - Objasni šta ćeš uraditi u 2-3 rečenice PRIJE nego počneš da kodiraš
+3. **KODIRAJ** - Napravi minimalne promjene koje rješavaju problem
+4. **PROVJERI** - Provjeri da promjene ne kvare postojeći kod
+
+## Stroga pravila
+- NE dodaj komentare, docstrings ili type annotations na kod koji nisi mijenjao
+- NE refaktoruj okolni kod - samo riješi ono što je traženo
+- NE dodaj error handling za scenarije koji se ne mogu desiti
+- NE kreiraj helper funkcije za jednokratne operacije
+- NE dodaj console.log osim ako debuguješ
+- NE mijenjaj formatting ili whitespace u fajlovima koje nisi dirao
+- AKO nešto ne radi: prvo pronađi ROOT CAUSE, ne zakrpi simptom
+
+## Debugging protokol
+Kada naiđeš na grešku:
+1. Pročitaj error poruku pažljivo
+2. Pronađi tačan fajl i liniju gdje nastaje problem
+3. Razumi ZAŠTO se greška dešava
+4. Popravi uzrok, ne simptom
+5. Provjeri da fix ne kvari drugo
+
 ## Opšta pravila
 - Jezik UI-ja: srpski (sr-Latn-RS)
 - Mobile-first responsive dizajn
@@ -201,15 +225,26 @@ function generateLicenseKey() {
   return `IMP-${seg()}-${seg()}-${seg()}`;
 }
 
-function initProjectFolder(serverPath, projectName, claudeTemplateName, claudeInstructions, includeLicensing) {
+function initProjectFolder(serverPath, projectName, claudeTemplateName, claudeInstructions, includeLicensing, claudeContext) {
   fs.mkdirSync(path.join(serverPath, '_docs'), { recursive: true });
   const claudeMdPath = path.join(serverPath, 'CLAUDE.md');
   if (!fs.existsSync(claudeMdPath)) {
     const templateContent = CLAUDE_TEMPLATES[claudeTemplateName] || claudeTemplateName || '';
     const templateSection = templateContent ? `\n${templateContent}\n` : '';
-    const descSection = claudeInstructions
-      ? `## Opis projekta\n${claudeInstructions}`
+
+    // Build structured description from context fields
+    const ctx = claudeContext || {};
+    const descParts = [];
+    if (ctx.appType) descParts.push(`**Tip aplikacije:** ${ctx.appType}`);
+    if (ctx.targetUsers) descParts.push(`**Ciljni korisnici:** ${ctx.targetUsers}`);
+    if (ctx.keyFeatures) descParts.push(`**Ključne funkcionalnosti:**\n${ctx.keyFeatures.split('\n').map(f => f.trim()).filter(Boolean).map(f => `- ${f}`).join('\n')}`);
+    if (ctx.designNotes) descParts.push(`**Dizajn i stil:**\n${ctx.designNotes}`);
+    if (claudeInstructions) descParts.push(`**Dodatne napomene:**\n${claudeInstructions}`);
+
+    const descSection = descParts.length > 0
+      ? `## Opis projekta\n${descParts.join('\n\n')}`
       : '## Opis projekta\nOvde dodaj opis i kontekst za Claude AI agenta.';
+
     const licensingSection = includeLicensing ? `\n## Licenciranje
 Ovaj projekat koristi IMPULSE sistem licenciranja.
 API: POST https://app.impulsee.dev/api/license/verify
@@ -482,7 +517,7 @@ app.post('/api/projects', async (req, res) => {
   }
 
   // Step 2: Init project folder structure
-  initProjectFolder(serverPath, name, req.body.claudeTemplate, req.body.claudeInstructions, req.body.includeLicensing);
+  initProjectFolder(serverPath, name, req.body.claudeTemplate, req.body.claudeInstructions, req.body.includeLicensing, req.body.claudeContext);
   steps.push({ step: 'init', ok: true });
 
   // Step 3: Initial commit + push

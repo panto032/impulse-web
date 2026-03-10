@@ -1465,6 +1465,18 @@ const CLAUDE_INFRA = `## Infrastruktura & Deploy
 - Port MORA biti 3000 (ili process.env.PORT)
 - .gitignore: node_modules/, dist/, .env
 
+## Način rada (OBAVEZNO)
+1. ČITAJ - Prvo pročitaj fajlove da razumiješ kod
+2. PLANIRAJ - Objasni šta ćeš uraditi prije nego kodiraš
+3. KODIRAJ - Minimalne promjene koje rješavaju problem
+4. PROVJERI - Ne kvari postojeći kod
+
+## Stroga pravila
+- NE dodaj komentare/docstrings na kod koji nisi mijenjao
+- NE refaktoruj okolni kod
+- NE kreiraj helpere za jednokratne operacije
+- AKO nešto ne radi: pronađi ROOT CAUSE, ne zakrpi simptom
+
 ## Opšta pravila
 - Jezik UI-ja: srpski (sr-Latn-RS)
 - Mobile-first responsive dizajn
@@ -1493,6 +1505,7 @@ function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg, 
     cloneUrl: '',
     claudeTemplate: 'React + Vite',
     claudeInstructions: '',
+    claudeContext: { appType: '', targetUsers: '', keyFeatures: '', designNotes: '' },
     includeLicensing: false,
   });
   const [techInput, setTechInput] = useState('');
@@ -1638,41 +1651,92 @@ function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg, 
 
           {/* Claude Instructions (only for new projects) */}
           {!isEdit && (
-            <div>
+            <div className="space-y-4">
               <label className={labelCls}>
                 <span className="flex items-center gap-2">
                   <Sparkles size={12} className="text-indigo-400" />
-                  Claude Instrukcije (CLAUDE.md)
+                  Claude AI Setup (CLAUDE.md)
                 </span>
               </label>
 
               {/* Template selector */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {Object.keys(CLAUDE_TEMPLATES).map(tmpl => (
-                  <button
-                    key={tmpl}
-                    onClick={() => set('claudeTemplate', tmpl)}
-                    className={`px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-                      form.claudeTemplate === tmpl
-                        ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-400'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                    }`}
-                  >
-                    {tmpl}
-                  </button>
-                ))}
+              <div>
+                <p className="text-[11px] text-zinc-600 mb-2">Tech template:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.keys(CLAUDE_TEMPLATES).map(tmpl => (
+                    <button
+                      key={tmpl}
+                      onClick={() => set('claudeTemplate', tmpl)}
+                      className={`px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
+                        form.claudeTemplate === tmpl
+                          ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-400'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                      }`}
+                    >
+                      {tmpl}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Custom instructions */}
-              <textarea
-                value={form.claudeInstructions}
-                onChange={e => set('claudeInstructions', e.target.value)}
-                placeholder="Dodatne instrukcije za Claude agenta... (npr. opis projekta, šta treba napraviti, koje boje koristiti, reference na fajlove iz _docs/ foldera)"
-                className={`${inputCls} resize-none min-h-[100px] leading-relaxed`}
-              />
+              {/* Structured questions */}
+              <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-4 space-y-3">
+                <p className="text-[11px] text-indigo-400 font-semibold uppercase tracking-wider">Opiši projekat — Claude će ovo koristiti kao kontekst</p>
+
+                <div>
+                  <label className="text-[11px] text-zinc-500 mb-1 block">Šta je ovo? (tip aplikacije)</label>
+                  <input
+                    className={inputCls}
+                    placeholder="npr. Dashboard za upravljanje narudžbinama, Landing stranica za restoran..."
+                    value={form.claudeContext.appType}
+                    onChange={e => set('claudeContext', { ...form.claudeContext, appType: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-zinc-500 mb-1 block">Ko su korisnici?</label>
+                  <input
+                    className={inputCls}
+                    placeholder="npr. Vlasnik restorana, klijenti, admin tim..."
+                    value={form.claudeContext.targetUsers}
+                    onChange={e => set('claudeContext', { ...form.claudeContext, targetUsers: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-zinc-500 mb-1 block">Ključne funkcionalnosti (jedna po redu)</label>
+                  <textarea
+                    className={`${inputCls} resize-none min-h-[80px] leading-relaxed`}
+                    placeholder={"Login sistem\nPrikaz proizvoda\nKorpa i checkout\nAdmin panel za narudžbine"}
+                    value={form.claudeContext.keyFeatures}
+                    onChange={e => set('claudeContext', { ...form.claudeContext, keyFeatures: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-zinc-500 mb-1 block">Dizajn / stil / boje (opciono)</label>
+                  <input
+                    className={inputCls}
+                    placeholder="npr. Tamna tema, minimalistički, plavi akcenti, kao Stripe..."
+                    value={form.claudeContext.designNotes}
+                    onChange={e => set('claudeContext', { ...form.claudeContext, designNotes: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Free-form additional notes */}
+              <div>
+                <label className="text-[11px] text-zinc-500 mb-1 block">Dodatne napomene (opciono)</label>
+                <textarea
+                  value={form.claudeInstructions}
+                  onChange={e => set('claudeInstructions', e.target.value)}
+                  placeholder="Bilo šta extra što Claude treba da zna... (reference na fajlove iz _docs/, specifični zahtjevi klijenta, integracije...)"
+                  className={`${inputCls} resize-none min-h-[70px] leading-relaxed`}
+                />
+              </div>
 
               {/* Include Licensing checkbox */}
-              <label className="flex items-center gap-2.5 mt-3 cursor-pointer group">
+              <label className="flex items-center gap-2.5 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={form.includeLicensing}
@@ -1689,18 +1753,22 @@ function ProjectFormModal({ initial = {}, onSave, onDelete, onClose, githubOrg, 
               <button
                 type="button"
                 onClick={() => setShowClaudePreview(!showClaudePreview)}
-                className="mt-2 text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
+                className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
               >
-                {showClaudePreview ? 'Sakrij preview' : 'Prikaži CLAUDE.md preview'}
+                {showClaudePreview ? 'Sakrij preview ▲' : 'Prikaži CLAUDE.md preview ▼'}
               </button>
               {showClaudePreview && (
-                <pre className="mt-2 bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-[11px] text-zinc-400 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar">
+                <pre className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-[11px] text-zinc-400 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar">
 {`# ${form.name || 'Naziv projekta'}
 
 ${CLAUDE_TEMPLATES[form.claudeTemplate] || ''}
 
 ## Opis projekta
-${form.claudeInstructions || 'Ovde dodaj opis i kontekst za Claude AI agenta.'}
+${form.claudeContext.appType ? `**Tip aplikacije:** ${form.claudeContext.appType}` : ''}
+${form.claudeContext.targetUsers ? `**Ciljni korisnici:** ${form.claudeContext.targetUsers}` : ''}
+${form.claudeContext.keyFeatures ? `**Ključne funkcionalnosti:**\n${form.claudeContext.keyFeatures.split('\n').filter(f => f.trim()).map(f => `- ${f.trim()}`).join('\n')}` : ''}
+${form.claudeContext.designNotes ? `**Dizajn i stil:**\n${form.claudeContext.designNotes}` : ''}
+${form.claudeInstructions ? `**Dodatne napomene:**\n${form.claudeInstructions}` : ''}
 
 ## Gde smo stali
 -
